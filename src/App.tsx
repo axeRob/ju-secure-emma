@@ -12,18 +12,22 @@ import { LearnArticle } from './screens/LearnArticle.tsx';
 import { SaferPassword, SecurityProblem, SecuritySuccess } from './screens/SecurityFlow.tsx';
 import { activeSection, useRoute } from './routes.ts';
 import type { Route } from './routes.ts';
+import { useAppState } from './state/AppContext.tsx';
 
 export function App() {
   const { route, navigate: navigateRoute } = useRoute();
+  const { summary } = useAppState();
   const section = activeSection(route);
   const mainRef = useRef<HTMLElement>(null);
   const firstRender = useRef(true);
   const flowOrigin = useRef<Route>({ screen: 'security' });
   const [focusNewestAccount, setFocusNewestAccount] = useState(false);
+  const [deferredAccountId, setDeferredAccountId] = useState<string | null>(null);
   const navigate = (next: Route) => {
     if (next.screen === 'reused-password' || next.screen === 'weak-password') {
-      if (route.screen === 'vault' || route.screen === 'security' || route.screen === 'account') flowOrigin.current = route;
+      if (route.screen === 'vault' || route.screen === 'security' || route.screen === 'account' || route.screen === 'success') flowOrigin.current = route;
     }
+    if (next.screen === 'reused-password' || next.screen === 'weak-password' || next.screen === 'safer-password') setDeferredAccountId(null);
     setFocusNewestAccount(false);
     navigateRoute(next);
   };
@@ -31,7 +35,11 @@ export function App() {
     setFocusNewestAccount(true);
     navigateRoute({ screen: 'vault' });
   };
-  const cancelSecurityFlow = () => navigate(flowOrigin.current);
+  const returnFromSecurityFlow = () => navigate(flowOrigin.current);
+  const deferSecurityFix = (accountId: string) => {
+    setDeferredAccountId(accountId);
+    navigate({ screen: 'vault' });
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -51,19 +59,19 @@ export function App() {
         <span className="demo-badge">Demo</span>
       </header>
       <main id="main-content" className="page-content" ref={mainRef} tabIndex={-1}>
-        {route.screen === 'vault' ? <Vault navigate={navigate} focusNewestAccount={focusNewestAccount} />
+        {route.screen === 'vault' ? <Vault navigate={navigate} focusNewestAccount={focusNewestAccount} deferredAccountId={deferredAccountId} />
           : route.screen === 'learn' ? <Learn navigate={navigate} />
           : route.screen === 'security' ? <Security navigate={navigate} />
           : route.screen === 'settings' ? <Settings />
           : route.screen === 'account' ? <AccountDetails key={route.accountId} accountId={route.accountId} navigate={navigate} />
           : route.screen === 'add-account' ? <AddAccount navigate={navigate} onAdded={finishAddingAccount} />
           : route.screen === 'learn-article' ? <LearnArticle articleId={route.articleId} navigate={navigate} />
-          : route.screen === 'reused-password' || route.screen === 'weak-password' ? <SecurityProblem accountId={route.accountId} navigate={navigate} onCancel={cancelSecurityFlow} />
-          : route.screen === 'safer-password' ? <SaferPassword key={route.accountId} accountId={route.accountId} navigate={navigate} onCancel={cancelSecurityFlow} />
+          : route.screen === 'reused-password' || route.screen === 'weak-password' ? <SecurityProblem accountId={route.accountId} navigate={navigate} onCancel={() => deferSecurityFix(route.accountId)} onBack={returnFromSecurityFlow} />
+          : route.screen === 'safer-password' ? <SaferPassword key={route.accountId} accountId={route.accountId} navigate={navigate} onCancel={() => deferSecurityFix(route.accountId)} />
           : route.screen === 'success' ? <SecuritySuccess navigate={navigate} />
           : <RouteShell route={route} navigate={navigate} />}
       </main>
-      {section && <BottomNavigation active={section} onNavigate={screen => navigate({ screen })} />}
+      {section && <BottomNavigation active={section} needsAttention={summary.needsAttention} onNavigate={screen => navigate({ screen })} />}
     </div>
   );
 }

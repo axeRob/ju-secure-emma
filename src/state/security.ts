@@ -25,6 +25,18 @@ export function filterAccounts(accounts: readonly Account[], filter: AccountFilt
   return accounts.filter((account) => filter === 'all' || account.status === filter)
 }
 
+export function getRecommendedAccount(accounts: readonly Account[]): Account | undefined {
+  return accounts.find((account) => account.id === 'spotify' && account.status !== 'safe') ??
+    accounts.find((account) => account.status === 'reused') ??
+    accounts.find((account) => account.status === 'weak')
+}
+
+/** Exact comparisons are limited to fictitious examples, never real password analysis. */
+export function getDemoPasswordMatches(accounts: readonly Account[], value: string): Account[] {
+  if (!value.startsWith('DEMO-')) return []
+  return accounts.filter((account) => account.demoPassword === value)
+}
+
 export function getRelatedAccounts(accounts: readonly Account[], accountId: string): Account[] {
   const selected = accounts.find((account) => account.id === accountId)
   if (!selected || selected.status !== 'reused' || !selected.reusedGroupId) return []
@@ -91,6 +103,27 @@ function appendAccounts(existing: readonly Account[], incoming: readonly Account
   return normalizeReusedGroups([...existing, ...additions])
 }
 
+/** Only the deliberate Add Account demo path opts into matching fake examples. */
+function appendWithDemoReuse(existing: readonly Account[], incoming: Account): Account[] {
+  const appended = appendAccounts(existing, [incoming])
+  const matches = getDemoPasswordMatches(existing, incoming.demoPassword)
+  if (!matches.length) return appended
+  const added = appended[appended.length - 1]!
+  let groupId = matches.find((account) => account.status === 'reused' && account.reusedGroupId)?.reusedGroupId
+  if (!groupId) {
+    const usedGroupIds = new Set(existing.map((account) => account.reusedGroupId))
+    const baseGroupId = `demo-reuse-${added.id}`
+    groupId = baseGroupId
+    let suffix = 2
+    while (usedGroupIds.has(groupId)) groupId = `${baseGroupId}-${suffix++}`
+  }
+  const memberIds = new Set([...matches.map((account) => account.id), added.id])
+  return normalizeReusedGroups(appended.map((account) => memberIds.has(account.id)
+    ? { ...account, status: 'reused', issueType: 'reused', reusedGroupId: groupId! }
+    : account,
+  ))
+}
+
 export function createInitialState(accounts: readonly Account[] = DEMO_ACCOUNTS): AppState {
   return {
     accounts: normalizeReusedGroups(accounts.map((account) => ({ ...account }))),
@@ -117,6 +150,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         item.id === action.accountId ? makeSafe(item, demoPassword) : item,
       )
       const normalized = normalizeReusedGroups(accounts)
+      const related = getRelatedAccounts(state.accounts, account.id)
+      const relatedAccountIds = related.map((item) => item.id)
       return {
         ...state,
         accounts: normalized,
@@ -124,7 +159,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           accountId: account.id,
           serviceName: account.serviceName,
           issueType: account.issueType,
-          relatedServiceNames: getRelatedAccounts(state.accounts, account.id).map((item) => item.serviceName),
+          relatedServiceNames: related.map((item) => item.serviceName),
+          relatedAccountIds,
+          relatedAccountsAfter: normalized.filter((item) => relatedAccountIds.includes(item.id))
+            .map(({ id, serviceName, status, reusedGroupId }) => ({ id, serviceName, status, reusedGroupId })),
           before: getSecuritySummary(state.accounts),
           after: getSecuritySummary(normalized),
         },
@@ -133,7 +171,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'clear-resolution':
       return state.lastResolution ? { ...state, lastResolution: null } : state
     case 'add-account':
-      return { ...state, accounts: appendAccounts(state.accounts, [action.account]) }
+      return {
+        ...state,
+        accounts: action.detectDemoReuse
+          ? appendWithDemoReuse(state.accounts, action.account)
+          : appendAccounts(state.accounts, [action.account]),
+      }
     case 'import-accounts':
       return { ...state, accounts: appendAccounts(state.accounts, action.accounts) }
     case 'set-filter':

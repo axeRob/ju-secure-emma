@@ -34,6 +34,8 @@ export interface ResolutionSummary {
   serviceName: string
   issueType: AccountIssue
   relatedServiceNames: string[]
+  relatedAccountIds?: string[]
+  relatedAccountsAfter?: Array<Pick<Account, 'id' | 'serviceName' | 'status' | 'reusedGroupId'>>
   before: SecuritySummary
   after: SecuritySummary
 }
@@ -50,7 +52,7 @@ export interface AppState {
 export type AppAction =
   | { type: 'resolve-issue'; accountId: string; demoPassword?: string }
   | { type: 'clear-resolution' }
-  | { type: 'add-account'; account: Account }
+  | { type: 'add-account'; account: Account; detectDemoReuse?: boolean }
   | { type: 'import-accounts'; accounts: Account[] }
   | { type: 'set-filter'; filter: AccountFilter }
   | { type: 'update-settings'; settings: Partial<AppSettings> }

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Check, Sparkles } from 'lucide-react';
-import { Card, InfoCard, PageHeader, PasswordDisplay, PrimaryButton } from '../components/index.ts';
-import { generateDemoPassword } from '../data/passwords.ts';
+import { Card, InfoCard, PageHeader, PasswordDisplay, PrimaryButton, SecondaryButton, WarningCard } from '../components/index.ts';
+import { generateDemoPassword, isStrongDemoPassword } from '../data/passwords.ts';
 import type { Route } from '../routes.ts';
 import { useAppState } from '../state/AppContext.tsx';
+import { getDemoPasswordMatches } from '../state/security.ts';
 
 type PasswordChoice = 'generated' | 'existing-demo';
 
@@ -18,8 +19,35 @@ export function AddAccount({ navigate, onAdded }: { navigate: (route: Route) => 
   const [generatedPassword, setGeneratedPassword] = useState(() =>
     generateDemoPassword(state.accounts.map(account => account.demoPassword)),
   );
-  const [existingDemoPassword, setExistingDemoPassword] = useState<string>(WEAK_DEMO_PASSWORDS[0]);
+  const [existingDemoPassword, setExistingDemoPassword] = useState<string>(() =>
+    state.accounts.find(account => account.id === 'spotify')?.demoPassword ?? WEAK_DEMO_PASSWORDS[0],
+  );
+  const [keptDemoPassword, setKeptDemoPassword] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
+  const reuseWarningRef = useRef<HTMLDivElement>(null);
+  const existingOptions = new Map<string, string[]>();
+  for (const account of state.accounts) {
+    if (!account.demoPassword.startsWith('DEMO-')) continue;
+    const names = existingOptions.get(account.demoPassword) ?? [];
+    existingOptions.set(account.demoPassword, [...names, account.serviceName]);
+  }
+  for (const value of WEAK_DEMO_PASSWORDS) {
+    if (!existingOptions.has(value)) existingOptions.set(value, []);
+  }
+  const matches = passwordChoice === 'existing-demo'
+    ? getDemoPasswordMatches(state.accounts, existingDemoPassword)
+    : [];
+  const reuseNeedsConfirmation = matches.length > 0 && keptDemoPassword !== existingDemoPassword;
+  const existingIsStrong = matches.length > 0
+    ? matches.every(account => account.passwordStrength === 'strong')
+    : isStrongDemoPassword(existingDemoPassword);
+  useEffect(() => {
+    if (!matches.length) return;
+    const frame = window.requestAnimationFrame(() => {
+      reuseWarningRef.current?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [passwordChoice, existingDemoPassword, matches.length]);
 
   const selectGeneratedPassword = () => {
     setGeneratedPassword(generateDemoPassword(
@@ -27,6 +55,8 @@ export function AddAccount({ navigate, onAdded }: { navigate: (route: Route) => 
       generatedPassword,
     ));
     setPasswordChoice('generated');
+    setKeptDemoPassword(null);
+    setFormError('');
   };
 
   const addAccount = (event: FormEvent<HTMLFormElement>) => {
@@ -37,22 +67,28 @@ export function AddAccount({ navigate, onAdded }: { navigate: (route: Route) => 
       setFormError('Add a demo app name and a demo email or username.');
       return;
     }
+    if (reuseNeedsConfirmation) {
+      setFormError('Use the recommended unique password, or choose “Keep this password” before adding the account.');
+      return;
+    }
 
-    const isStrong = passwordChoice === 'generated';
+    const isStrong = passwordChoice === 'generated' || existingIsStrong;
+    const reused = passwordChoice === 'existing-demo' && matches.length > 0;
     const baseId = demoService.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'account';
     const initial = demoService.split(/\s+/).map(word => word[0]).join('').slice(0, 2).toUpperCase();
     dispatch({
       type: 'add-account',
+      detectDemoReuse: passwordChoice === 'existing-demo',
       account: {
         id: `demo-${baseId}`,
         serviceName: demoService,
         username: demoUsername,
-        status: isStrong ? 'safe' : 'weak',
-        issueType: isStrong ? 'none' : 'weak',
+        status: reused ? 'reused' : isStrong ? 'safe' : 'weak',
+        issueType: reused ? 'reused' : isStrong ? 'none' : 'weak',
         passwordStrength: isStrong ? 'strong' : 'weak',
         reusedGroupId: null,
         initial,
-        demoPassword: isStrong ? generatedPassword : existingDemoPassword,
+        demoPassword: passwordChoice === 'generated' ? generatedPassword : existingDemoPassword,
       },
     });
     dispatch({ type: 'set-filter', filter: 'all' });
@@ -85,11 +121,13 @@ export function AddAccount({ navigate, onAdded }: { navigate: (route: Route) => 
               <button type="button" className={`password-option${passwordChoice === 'generated' ? ' password-option-selected' : ''}`}
                 aria-pressed={passwordChoice === 'generated'} onClick={selectGeneratedPassword}>
                 <Sparkles size={17} aria-hidden="true" />
-                <span>Generate a strong password</span>
+                <span>Use a unique password</span>
                 {passwordChoice === 'generated' && <Check size={17} aria-hidden="true" />}
               </button>
               <button type="button" className={`password-option${passwordChoice === 'existing-demo' ? ' password-option-selected' : ''}`}
-                aria-pressed={passwordChoice === 'existing-demo'} onClick={() => setPasswordChoice('existing-demo')}>
+                aria-pressed={passwordChoice === 'existing-demo'} onClick={() => {
+                  setPasswordChoice('existing-demo'); setKeptDemoPassword(null); setFormError('');
+                }}>
                 <span>I already have a password</span>
                 {passwordChoice === 'existing-demo' && <Check size={17} aria-hidden="true" />}
               </button>
@@ -103,15 +141,38 @@ export function AddAccount({ navigate, onAdded }: { navigate: (route: Route) => 
               <div className="form-field">
                 <label className="form-label" htmlFor="existing-demo-password">Choose a demo password</label>
                 <select className="form-input" id="existing-demo-password" value={existingDemoPassword}
-                  onChange={event => setExistingDemoPassword(event.target.value)} aria-describedby="existing-demo-help">
-                  {WEAK_DEMO_PASSWORDS.map(password => <option key={password} value={password}>{password} — weak demo example</option>)}
+                  onChange={event => {
+                    setExistingDemoPassword(event.target.value); setKeptDemoPassword(null); setFormError('');
+                  }} aria-describedby="existing-demo-help">
+                  {[...existingOptions].map(([password, names]) => (
+                    <option key={password} value={password}>
+                      {names.length ? `${names.join(', ')} — existing demo value` : `${password} — weak demo example`}
+                    </option>
+                  ))}
                 </select>
-                <p className="form-help" id="existing-demo-help">These made-up examples are easy to guess. The account will need attention until you make it stronger.</p>
+                <p className="form-help" id="existing-demo-help">Choose only from made-up examples. JU Secure has already prepared a unique password for you.</p>
+                {!matches.length && !existingIsStrong && <p className="form-help">This demo example is easy to guess. The account will need attention until you make it stronger.</p>}
               </div>
             )}
           </Card>
+          {matches.length > 0 && <div className="reuse-warning-region" ref={reuseWarningRef}><WarningCard className="add-reuse-warning" title="This password is already used">
+            <p aria-live="polite">You already use this password on {matches.length} other {matches.length === 1 ? 'account' : 'accounts'}.</p>
+            <ul className="reuse-account-list" aria-label="Accounts using this demo password">
+              {matches.map(account => <li key={account.id}>{account.serviceName}</li>)}
+            </ul>
+            <p>Using it again would connect another account to the same password.</p>
+            <div className="reuse-recommendation"><span className="section-eyebrow">Recommended</span><p>Use a unique password instead. We’ll create it for you.</p></div>
+            <div className="reuse-warning-actions">
+              <PrimaryButton onClick={selectGeneratedPassword}>Use a unique password</PrimaryButton>
+              <SecondaryButton onClick={() => { setKeptDemoPassword(existingDemoPassword); setFormError(''); }}
+                aria-pressed={keptDemoPassword === existingDemoPassword}>Keep this password</SecondaryButton>
+            </div>
+            {keptDemoPassword === existingDemoPassword && <p className="reuse-keep-confirmation" role="status">You can keep this demo password. The new account will need attention because it shares a password.</p>}
+          </WarningCard></div>}
           {formError && <p className="form-error" role="alert">{formError}</p>}
-          <PrimaryButton type="submit">Add account</PrimaryButton>
+          {reuseNeedsConfirmation && <p className="form-help add-account-pending-help" id="reuse-save-help">Choose the unique password or confirm that you want to keep sharing before adding this account.</p>}
+          <PrimaryButton type="submit" disabled={reuseNeedsConfirmation}
+            aria-describedby={reuseNeedsConfirmation ? 'reuse-save-help' : undefined}>Add account</PrimaryButton>
         </form>
       </div>
     </>

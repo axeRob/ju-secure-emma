@@ -35,11 +35,12 @@ If the first run fails because Pages was not configured yet, select **GitHub Act
 
 ## What works
 
-- Vault, Security, Learn, and Settings navigation, including browser back/forward.
-- Vault starts with **24 demo accounts: 3 safe, 15 reused, 6 weak**. Reused accounts belong to five explicit groups. Every summary and recommendation follows the current account state.
+- Vault, Security, Learn, and Settings navigation, including browser back/forward. Security has a subtle accessible badge showing the current number of accounts needing attention; it disappears when none remain.
+- Vault starts with **24 demo accounts: 3 safe, 15 reused, 6 weak** across five explicit reuse groups. Password health explains that 21 accounts need attention while offering one manageable action. The shared recommendation prioritizes unresolved Spotify, then another reused account, then a weak account.
 - Account details show a fictitious password example with reveal/hide and copy controls. Copy feedback resets after a short confirmation; unavailable clipboard access is clearly reported as a demo simulation.
-- Reuse and weak-password journeys explain the issue, generate a fresh 20-character demo example, simulate a change, and show the actual before/after summary. “Not now” returns without changing the account. No external service opens.
-- The magenta plus button opens Add account. Made-up details and a generated strong example add a safe account; choosing a weak demo example adds an account needing attention. The new account and updated totals appear in Vault.
+- Reuse and weak-password journeys name affected accounts, explain the consequence, and offer “Fix this for me.” A unique 20-character demo example and safe-default checklist are prepared automatically. “Use recommended password” completes the local simulation; copying is optional. “Not now” returns to Vault with a calm reminder and leaves accounts unchanged. No external service opens.
+- Success shows historical BEFORE/NOW account relationships, actual summary changes, and the number of problems fixed. Still-shared or weak peers retain their correct status. An optional next fix and Back to Vault keep progress voluntary.
+- The magenta plus button opens Add account. A unique generated example is selected by default. Choosing an existing demo value immediately shows matching accounts and recommends a unique alternative. Reuse requires a deliberate “Keep this password”; changing the selection clears that confirmation. Saving reused examples joins or creates an explicit group while retaining weak-strength issues.
 - Learn opens short articles about unique passwords, 2FA, and passkeys, each with a concrete example and benefit.
 - Settings switches update demo preferences for automatic lock and helpful guidance, with safe defaults enabled. These are in-memory preferences, not real locking or authentication services.
 
@@ -66,4 +67,4 @@ src/
 
 Check the four tabs at 390 × 844, and widths 360, 375, 393, and 430. Verify visible focus, keyboard navigation, readable status pills, no horizontal overflow, and access to the final account when scrolling. Desktop keeps the mobile app centered at 390px on a dark background. The bottom navigation stays visible; the floating plus button uses a transparent wrapper without a rectangular overlay. The document uses one normal vertical scrollbar.
 
-Try reveal/copy, generating another example, cancelling with “Not now,” completing reused and weak simulations, adding a demo account, changing settings, and opening each Learn article. Reload and confirm that the initial 3 / 15 / 6 profile and default settings return.
+Try reveal/copy, generating another example, cancelling with “Not now,” completing reused and weak simulations, and the optional next fix. In Add account, verify immediate reuse guidance, the unique alternative, deliberate Keep, and confirmation reset after a selection change. Check updated recommendations/badges, settings, and all Learn articles. Reload and confirm that the initial 3 / 15 / 6 profile and default settings return.

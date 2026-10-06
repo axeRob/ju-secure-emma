@@ -1,12 +1,14 @@
 import { Card, InfoCard, PageHeader, SecurityIssueCard, SettingsRow, SuccessCard } from '../components/index.ts';
 import { useAppState } from '../state/AppContext.tsx';
+import { getRecommendedAccount, getRelatedAccounts } from '../state/security.ts';
 import type { Route } from '../routes.ts';
 
 export function Security({ navigate }: { navigate: (route: Route) => void }) {
   const { state, summary } = useAppState();
-  const reusedAccount = state.accounts.find(account => account.id === 'spotify' && account.status === 'reused')
-    || state.accounts.find(account => account.status === 'reused');
-  const relatedAccounts = reusedAccount ? state.accounts.filter(account => account.status === 'reused' && account.reusedGroupId === reusedAccount.reusedGroupId) : [];
+  const recommended = getRecommendedAccount(state.accounts);
+  const relatedAccounts = recommended ? getRelatedAccounts(state.accounts, recommended.id) : [];
+  const relatedNames = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(relatedAccounts.map(account => account.serviceName));
+  const reusedAccount = state.accounts.find(account => account.status === 'reused');
   const weakAccount = state.accounts.find(account => account.issueType === 'weak');
   return (
     <>
@@ -17,8 +19,12 @@ export function Security({ navigate }: { navigate: (route: Route) => void }) {
         <p>{summary.safe} accounts are safe. {summary.needsAttention ? `${summary.needsAttention} could use a little attention.` : 'Each account has its own strong demo password.'}</p>
       </div>
       <div className="screen-stack">
-        {reusedAccount && <SecurityIssueCard title={`Recommended first: ${reusedAccount.serviceName}`} description={`${reusedAccount.serviceName} shares a password with ${relatedAccounts.length - 1} other accounts. We’ll help you give it its own password first.`} actionLabel="Review shared password" onAction={() => navigate({ screen: 'reused-password', accountId: reusedAccount.id })} />}
-        {!reusedAccount && weakAccount && <SecurityIssueCard title={`Recommended first: ${weakAccount.serviceName}`} description={`${weakAccount.serviceName} has a short, easy-to-guess demo password. We’ll help you make it stronger.`} actionLabel="See why it matters" onAction={() => navigate({ screen: 'weak-password', accountId: weakAccount.id })} />}
+        {recommended && <SecurityIssueCard title="Recommended first"
+          description={recommended.issueType === 'reused'
+            ? `${recommended.serviceName} shares a password with ${relatedNames}. One exposed password could affect several of your accounts.`
+            : `${recommended.serviceName} has a password that is easy to guess. A strong, unique password helps protect this account.`}
+          primary actionLabel={`Fix ${recommended.serviceName}’s password`}
+          onAction={() => navigate({ screen: recommended.issueType === 'reused' ? 'reused-password' : 'weak-password', accountId: recommended.id })} />}
         {summary.needsAttention > 0 && <section aria-labelledby="more-security-heading" data-testid="security-issues-summary">
           <div className="section-heading"><h2 id="more-security-heading">More things to improve</h2></div>
           <Card className="settings-group">

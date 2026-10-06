@@ -101,24 +101,23 @@ export function AccountCard({ account, onClick }: { account: Account; onClick: (
 
 type SecuritySummaryProps = {
   summary: { total: number; safe: number; reused: number; weak: number; needsAttention: number }
-  onRecommendation: () => void
-  recommendationLabel?: string
 }
 
-export function SecuritySummary({ summary, onRecommendation, recommendationLabel = 'Fix Spotify’s shared password' }: SecuritySummaryProps) {
+export function SecuritySummary({ summary }: SecuritySummaryProps) {
   const hasIssue = summary.needsAttention > 0
   return (
     <section className="card security-summary" aria-label="Security overview" data-testid="security-summary">
-      <h2 className="summary-title">{hasIssue ? '1 thing we recommend fixing first' : 'Your accounts are in a good place'}</h2>
+      <h2 className="summary-title">Your password health</h2>
       <div className="summary-stats" role="group" aria-label={`${summary.total} accounts: ${summary.safe} safe, ${summary.reused} reused, ${summary.weak} weak`}>
-        <div className="summary-stat"><span className="stat-number">{summary.safe}</span><span className="stat-label">safe</span></div>
-        <div className="summary-stat"><span className="stat-number">{summary.reused}</span><span className="stat-label">reused</span></div>
-        <div className="summary-stat"><span className="stat-number">{summary.weak}</span><span className="stat-label">weak</span></div>
+        <div className="summary-stat"><span className="stat-number">{summary.safe}</span><span className="stat-label">Safe</span></div>
+        <div className="summary-stat"><span className="stat-number">{summary.reused}</span><span className="stat-label">Reused</span></div>
+        <div className="summary-stat"><span className="stat-number">{summary.weak}</span><span className="stat-label">Weak</span></div>
       </div>
       {hasIssue ? (
-        <button type="button" className="recommendation-action" onClick={onRecommendation}>
-          <span>{recommendationLabel}</span><ArrowRight size={17} aria-hidden="true" />
-        </button>
+        <>
+          <p className="health-attention-count">{summary.needsAttention} {summary.needsAttention === 1 ? 'account needs' : 'accounts need'} attention.</p>
+          <p className="summary-description password-health-note">You don’t need to fix everything today. We’ll help you improve one account at a time.</p>
+        </>
       ) : (
         <div className="summary-all-clear"><CheckCircle2 size={17} aria-hidden="true" /> No recommended fixes right now</div>
       )}
@@ -126,17 +125,19 @@ export function SecuritySummary({ summary, onRecommendation, recommendationLabel
   )
 }
 
-export function SecurityIssueCard({ title, description, actionLabel, onAction }: {
+export function SecurityIssueCard({ title, description, actionLabel, onAction, primary = false }: {
   title: string
   description: string
   actionLabel: string
   onAction: () => void
+  primary?: boolean
 }) {
   return (
     <Card className="security-issue-card">
       <div className="issue-heading"><CircleAlert size={19} aria-hidden="true" /><h3 className="issue-title">{title}</h3></div>
       <p className="issue-description">{description}</p>
-      <TextAction onClick={onAction}>{actionLabel}<ArrowRight size={16} aria-hidden="true" /></TextAction>
+      {primary ? <PrimaryButton onClick={onAction}>{actionLabel}<ArrowRight size={16} aria-hidden="true" /></PrimaryButton>
+        : <TextAction onClick={onAction}>{actionLabel}<ArrowRight size={16} aria-hidden="true" /></TextAction>}
     </Card>
   )
 }
@@ -227,16 +228,21 @@ const navigationItems: Array<{ id: NavigationSection; label: string; icon: Lucid
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-export function BottomNavigation({ active, onNavigate }: {
+export function BottomNavigation({ active, onNavigate, needsAttention = 0 }: {
   active: NavigationSection
   onNavigate: (section: NavigationSection) => void
+  needsAttention?: number
 }) {
   return (
     <nav className="bottom-navigation" aria-label="Main navigation">
       {navigationItems.map(({ id, label, icon: Icon }) => (
         <button key={id} type="button" className={classes('nav-item', active === id && 'nav-item-active')}
-          aria-current={active === id ? 'page' : undefined} onClick={() => onNavigate(id)}>
-          <Icon size={21} aria-hidden="true" />
+          aria-current={active === id ? 'page' : undefined}
+          aria-label={id === 'security' && needsAttention > 0 ? `Security, ${needsAttention} ${needsAttention === 1 ? 'account needs' : 'accounts need'} attention` : undefined}
+          onClick={() => onNavigate(id)}>
+          <span className="nav-icon-wrap"><Icon size={21} aria-hidden="true" />
+            {id === 'security' && needsAttention > 0 && <span className="nav-attention-badge" aria-hidden="true">{needsAttention}</span>}
+          </span>
           <span className="nav-label">{label}</span>
         </button>
       ))}
