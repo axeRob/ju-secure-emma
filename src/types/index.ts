@@ -1,7 +1,7 @@
 export type AccountStatus = 'safe' | 'reused' | 'weak'
 export type AccountIssue = 'none' | 'reused' | 'weak'
 
-/** Deliberately contains no password or credential value. */
+/** Contains visibly fictitious demo examples, never real credentials. */
 export interface Account {
   id: string
   serviceName: string
@@ -11,6 +11,7 @@ export interface Account {
   passwordStrength: 'strong' | 'weak'
   reusedGroupId: string | null
   initial: string
+  demoPassword: string
 }
 
 export type AccountFilter = 'all' | 'safe' | 'reused' | 'weak'
@@ -28,16 +29,27 @@ export interface AppSettings {
   securityGuidance: boolean
 }
 
+export interface ResolutionSummary {
+  accountId: string
+  serviceName: string
+  issueType: AccountIssue
+  relatedServiceNames: string[]
+  before: SecuritySummary
+  after: SecuritySummary
+}
+
 export interface AppState {
   accounts: Account[]
   filter: AccountFilter
   settings: AppSettings
   onboardingComplete: boolean
   isReturningUser: boolean
+  lastResolution: ResolutionSummary | null
 }
 
 export type AppAction =
-  | { type: 'resolve-issue'; accountId: string }
+  | { type: 'resolve-issue'; accountId: string; demoPassword?: string }
+  | { type: 'clear-resolution' }
   | { type: 'add-account'; account: Account }
   | { type: 'import-accounts'; accounts: Account[] }
   | { type: 'set-filter'; filter: AccountFilter }

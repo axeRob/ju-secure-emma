@@ -1,5 +1,19 @@
 import type { Account, AccountStatus, LearnTopic } from '../types/index.ts'
 
+const REUSED_DEMO_PASSWORDS: Record<string, string> = {
+  'demo-shared-a': 'DEMO-GroupA!0001xY7#',
+  'demo-shared-b': 'DEMO-GroupB!0001xY7#',
+  'demo-shared-c': 'DEMO-GroupC!0001xY7#',
+  'demo-shared-d': 'DEMO-GroupD!0001xY7#',
+  'demo-shared-e': 'DEMO-GroupE!0001xY7#',
+}
+
+const SAFE_DEMO_PASSWORDS: Record<string, string> = {
+  'ju-student-web': 'DEMO-Safe!000001xY7#',
+  canvas: 'DEMO-Safe!000002xY7#',
+  'university-library': 'DEMO-Safe!000003xY7#',
+}
+
 function demoAccount(
   id: string,
   serviceName: string,
@@ -17,6 +31,11 @@ function demoAccount(
     passwordStrength: status === 'weak' ? 'weak' : 'strong',
     reusedGroupId: status === 'reused' ? reusedGroupId : null,
     initial,
+    demoPassword: status === 'weak'
+      ? `DEMO-weak-${id}`
+      : status === 'reused'
+        ? REUSED_DEMO_PASSWORDS[reusedGroupId!]!
+        : SAFE_DEMO_PASSWORDS[id]!,
   }
 }
 

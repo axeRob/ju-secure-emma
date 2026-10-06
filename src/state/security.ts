@@ -1,4 +1,5 @@
 import { DEMO_ACCOUNTS } from '../data/demo.ts'
+import { generateDemoPassword, isStrongDemoPassword } from '../data/passwords.ts'
 import type {
   Account,
   AccountFilter,
@@ -22,6 +23,15 @@ export function getSecuritySummary(accounts: readonly Account[]): SecuritySummar
 
 export function filterAccounts(accounts: readonly Account[], filter: AccountFilter): Account[] {
   return accounts.filter((account) => filter === 'all' || account.status === filter)
+}
+
+export function getRelatedAccounts(accounts: readonly Account[], accountId: string): Account[] {
+  const selected = accounts.find((account) => account.id === accountId)
+  if (!selected || selected.status !== 'reused' || !selected.reusedGroupId) return []
+  return accounts.filter((account) =>
+    account.id !== selected.id && account.status === 'reused' &&
+    account.reusedGroupId === selected.reusedGroupId,
+  )
 }
 
 /** Reuse is an explicit relationship, never inferred from an email or strength. */
@@ -56,13 +66,14 @@ function clearReuse(account: Account): Account {
   return makeSafe(account)
 }
 
-function makeSafe(account: Account): Account {
+function makeSafe(account: Account, demoPassword = account.demoPassword): Account {
   return {
     ...account,
     status: 'safe',
     issueType: 'none',
     passwordStrength: 'strong',
     reusedGroupId: null,
+    demoPassword,
   }
 }
 
@@ -87,6 +98,7 @@ export function createInitialState(accounts: readonly Account[] = DEMO_ACCOUNTS)
     settings: { autoLock: true, securityGuidance: true },
     onboardingComplete: false,
     isReturningUser: false,
+    lastResolution: null,
   }
 }
 
@@ -95,11 +107,31 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'resolve-issue': {
       const account = state.accounts.find((item) => item.id === action.accountId)
       if (!account || account.status === 'safe') return state
+      const existingPasswords = state.accounts.map((item) => item.demoPassword)
+      const supplied = action.demoPassword
+      const demoPassword = supplied && isStrongDemoPassword(supplied) &&
+        !existingPasswords.includes(supplied)
+        ? supplied
+        : generateDemoPassword(existingPasswords, account.demoPassword)
       const accounts = state.accounts.map((item) =>
-        item.id === action.accountId ? makeSafe(item) : item,
+        item.id === action.accountId ? makeSafe(item, demoPassword) : item,
       )
-      return { ...state, accounts: normalizeReusedGroups(accounts) }
+      const normalized = normalizeReusedGroups(accounts)
+      return {
+        ...state,
+        accounts: normalized,
+        lastResolution: {
+          accountId: account.id,
+          serviceName: account.serviceName,
+          issueType: account.issueType,
+          relatedServiceNames: getRelatedAccounts(state.accounts, account.id).map((item) => item.serviceName),
+          before: getSecuritySummary(state.accounts),
+          after: getSecuritySummary(normalized),
+        },
+      }
     }
+    case 'clear-resolution':
+      return state.lastResolution ? { ...state, lastResolution: null } : state
     case 'add-account':
       return { ...state, accounts: appendAccounts(state.accounts, [action.account]) }
     case 'import-accounts':

@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react'
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -7,6 +7,9 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleAlert,
+  Copy,
+  Eye,
+  EyeOff,
   Info,
   LockKeyhole,
   Plus,
@@ -138,12 +141,79 @@ export function SecurityIssueCard({ title, description, actionLabel, onAction }:
   )
 }
 
-export function PasswordDisplay({ label = 'Password' }: { label?: string }) {
+export function PasswordDisplay({
+  label = 'Password',
+  value = 'DEMO-JU-Secure-24!',
+  defaultVisible = false,
+  hideCopy = false,
+}: {
+  label?: string
+  value?: string
+  defaultVisible?: boolean
+  hideCopy?: boolean
+}) {
+  const [visible, setVisible] = useState(defaultVisible)
+  const [copied, setCopied] = useState(false)
+  const [copyStatus, setCopyStatus] = useState('')
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const copyRequest = useRef(0)
+
+  useEffect(() => {
+    setVisible(defaultVisible)
+    setCopied(false)
+    setCopyStatus('')
+    return () => {
+      copyRequest.current += 1
+      if (feedbackTimer.current !== null) {
+        clearTimeout(feedbackTimer.current)
+        feedbackTimer.current = null
+      }
+    }
+  }, [value, defaultVisible])
+
+  async function copyDemoValue() {
+    const request = ++copyRequest.current
+    if (feedbackTimer.current !== null) clearTimeout(feedbackTimer.current)
+    let simulated = false
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value)
+      } else {
+        simulated = true
+      }
+    } catch {
+      simulated = true
+    }
+    if (request !== copyRequest.current) return
+    setCopied(true)
+    setCopyStatus(simulated ? 'Demo copy simulated.' : 'Fictitious demo value copied.')
+    feedbackTimer.current = setTimeout(() => {
+      setCopied(false)
+      setCopyStatus('')
+      feedbackTimer.current = null
+    }, 1500)
+  }
+
   return (
     <div className="password-display">
       <span className="password-label">{label}</span>
-      <span className="password-value" role="img" aria-label="Hidden demo password">•••• •••• •••• ••••</span>
-      <span className="demo-label">Demo value</span>
+      <div className="password-value-row">
+        <span className="password-value" role="img" aria-label={visible ? `Fictitious demo password: ${value}` : 'Hidden fictitious demo password'}>
+          {visible ? value : '•••• •••• •••• ••••'}
+        </span>
+        <div className="password-controls">
+          <button type="button" className="password-icon-button" aria-label={visible ? 'Hide password' : 'Show password'}
+            aria-pressed={visible} onClick={() => setVisible(current => !current)}>
+            {visible ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
+          </button>
+          {!hideCopy && <button type="button" className="password-copy" onClick={copyDemoValue}>
+            {copied ? <Check size={17} aria-hidden="true" /> : <Copy size={17} aria-hidden="true" />}
+            {copied ? 'Copied' : 'Copy'}
+          </button>}
+        </div>
+      </div>
+      <span className="demo-label">Fictitious demo value · {visible ? 'Visible' : 'Hidden'}</span>
+      <span className="password-copy-status" role="status" aria-live="polite">{copyStatus}</span>
     </div>
   )
 }

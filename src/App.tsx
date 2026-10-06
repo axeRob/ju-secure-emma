@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { BottomNavigation } from './components/index.ts';
 import { Vault } from './screens/Vault.tsx';
@@ -6,13 +6,32 @@ import { Learn } from './screens/Learn.tsx';
 import { Security } from './screens/Security.tsx';
 import { Settings } from './screens/Settings.tsx';
 import { RouteShell } from './screens/RouteShell.tsx';
+import { AccountDetails } from './screens/AccountDetails.tsx';
+import { AddAccount } from './screens/AddAccount.tsx';
+import { LearnArticle } from './screens/LearnArticle.tsx';
+import { SaferPassword, SecurityProblem, SecuritySuccess } from './screens/SecurityFlow.tsx';
 import { activeSection, useRoute } from './routes.ts';
+import type { Route } from './routes.ts';
 
 export function App() {
-  const { route, navigate } = useRoute();
+  const { route, navigate: navigateRoute } = useRoute();
   const section = activeSection(route);
   const mainRef = useRef<HTMLElement>(null);
   const firstRender = useRef(true);
+  const flowOrigin = useRef<Route>({ screen: 'security' });
+  const [focusNewestAccount, setFocusNewestAccount] = useState(false);
+  const navigate = (next: Route) => {
+    if (next.screen === 'reused-password' || next.screen === 'weak-password') {
+      if (route.screen === 'vault' || route.screen === 'security' || route.screen === 'account') flowOrigin.current = route;
+    }
+    setFocusNewestAccount(false);
+    navigateRoute(next);
+  };
+  const finishAddingAccount = () => {
+    setFocusNewestAccount(true);
+    navigateRoute({ screen: 'vault' });
+  };
+  const cancelSecurityFlow = () => navigate(flowOrigin.current);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -32,10 +51,16 @@ export function App() {
         <span className="demo-badge">Demo</span>
       </header>
       <main id="main-content" className="page-content" ref={mainRef} tabIndex={-1}>
-        {route.screen === 'vault' ? <Vault navigate={navigate} />
-          : route.screen === 'learn' ? <Learn />
+        {route.screen === 'vault' ? <Vault navigate={navigate} focusNewestAccount={focusNewestAccount} />
+          : route.screen === 'learn' ? <Learn navigate={navigate} />
           : route.screen === 'security' ? <Security navigate={navigate} />
           : route.screen === 'settings' ? <Settings />
+          : route.screen === 'account' ? <AccountDetails key={route.accountId} accountId={route.accountId} navigate={navigate} />
+          : route.screen === 'add-account' ? <AddAccount navigate={navigate} onAdded={finishAddingAccount} />
+          : route.screen === 'learn-article' ? <LearnArticle articleId={route.articleId} navigate={navigate} />
+          : route.screen === 'reused-password' || route.screen === 'weak-password' ? <SecurityProblem accountId={route.accountId} navigate={navigate} onCancel={cancelSecurityFlow} />
+          : route.screen === 'safer-password' ? <SaferPassword key={route.accountId} accountId={route.accountId} navigate={navigate} onCancel={cancelSecurityFlow} />
+          : route.screen === 'success' ? <SecuritySuccess navigate={navigate} />
           : <RouteShell route={route} navigate={navigate} />}
       </main>
       {section && <BottomNavigation active={section} onNavigate={screen => navigate({ screen })} />}

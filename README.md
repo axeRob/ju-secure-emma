@@ -1,6 +1,6 @@
 # JU Secure — Emma prototype
 
-A mobile-first educational password manager prototype for a university Human Aspects of Cybersecurity project. This first step establishes the design system, demo model, navigation, and screen shells. All displayed accounts and addresses are fictitious demo data. The application contains no password values, backend, real authentication, or credential persistence.
+A mobile-first educational password manager prototype for a university Human Aspects of Cybersecurity project. Explore demo accounts, practise improving weak or reused passwords, and read short explanations. All account details and `DEMO-` password examples are fictitious. Changes live in memory for the current visit; the app has no backend, real authentication, service connections, or persistent credential storage.
 
 ## Run locally
 
@@ -19,7 +19,7 @@ For Web Preview, select the running development server on port **5173**, with `/
 ```sh
 npm run build       # TypeScript check and production build
 npm run typecheck   # TypeScript only
-npm test            # Eleven domain tests using Node's test runner
+npm test            # Domain tests using Node's test runner
 npm run preview     # Serve the production build
 ```
 
@@ -33,24 +33,28 @@ In the repository's **Settings → Pages → Build and deployment → Source**, 
 
 If the first run fails because Pages was not configured yet, select **GitHub Actions** as the source, then rerun **Deploy JU Secure to GitHub Pages** from the Actions tab. To check the production output locally, run `npm run build` followed by `npm run preview`, then open `/ju-secure-emma/` on the preview server.
 
-## What works in this step
+## What works
 
 - Vault, Security, Learn, and Settings navigation, including browser back/forward.
-- A polished Vault with all 24 demo accounts: **3 safe, 15 reused, 6 weak**. Reused accounts belong to five explicit groups. The summary prioritizes Spotify while the Security overview groups the remaining issues. Account cards open details; the recommendation and plus button open their respective screen shells.
-- Learn overview, an account-based example, and two clearly marked future topics.
-- Consistent Security and Settings shells. Settings show safe defaults as disabled controls marked “Coming next.” They do not perform locking or other security operations.
-- Direct routes for onboarding, account details/add, security guidance/success, and learning articles. Incomplete workflows explain their scope and provide a working return action. The success shell does not claim that an action occurred.
+- Vault starts with **24 demo accounts: 3 safe, 15 reused, 6 weak**. Reused accounts belong to five explicit groups. Every summary and recommendation follows the current account state.
+- Account details show a fictitious password example with reveal/hide and copy controls. Copy feedback resets after a short confirmation; unavailable clipboard access is clearly reported as a demo simulation.
+- Reuse and weak-password journeys explain the issue, generate a fresh 20-character demo example, simulate a change, and show the actual before/after summary. “Not now” returns without changing the account. No external service opens.
+- The magenta plus button opens Add account. Made-up details and a generated strong example add a safe account; choosing a weak demo example adds an account needing attention. The new account and updated totals appear in Vault.
+- Learn opens short articles about unique passwords, 2FA, and passkeys, each with a concrete example and benefit.
+- Settings switches update demo preferences for automatic lock and helpful guidance, with safe defaults enabled. These are in-memory preferences, not real locking or authentication services.
 
-Password change, password generation, import, account creation, settings interaction, complete articles, and returning-user unlock are intentionally deferred.
+Onboarding, Create vault, Import, and Unlock remain informational entry screens with a working route into the demo. No real master password or account credentials are collected, and no files are imported. Reloading resets accounts, generated changes, added accounts, settings, and progress to the initial fixtures.
+
+For the four-member Spotify group, fixing Spotify gives **4 safe / 14 reused / 6 weak**; fixing Google next gives **5 / 13 / 6**. Fixing Netflix then clears Instagram's final reuse relationship too, giving **7 / 11 / 6**. Other groups and weak issues stay unchanged.
 
 ## Structure
 
 ```text
 src/
   components/    Reusable semantic UI components
-  data/          Fixed demo accounts, Learn copy, internal Emma principles
-  screens/       Vault, Learn, Security, Settings and future workflow shells
-  state/         React context, pure reducer, selectors and domain tests
+  data/          Demo accounts/examples, short articles, internal Emma principles
+  screens/       Main tabs, interactive demo journeys and entry screens
+  state/         React context, reducer, selectors and domain tests
   styles/        Central tokens and responsive component styles
   types/         Shared account, state, issue and learning types
   routes.ts      Typed hash routes and active-section mapping
@@ -60,4 +64,6 @@ src/
 
 ## Manual visual checks
 
-Check the four tabs at 390 × 844, and widths 360, 375, 393, and 430. Verify visible focus, keyboard navigation, readable status pills, no horizontal overflow, and access to the final account when scrolling. Desktop keeps the mobile app centered at 390px on a dark background. The bottom navigation and Vault action area remain accessible; the document uses one normal vertical scrollbar.
+Check the four tabs at 390 × 844, and widths 360, 375, 393, and 430. Verify visible focus, keyboard navigation, readable status pills, no horizontal overflow, and access to the final account when scrolling. Desktop keeps the mobile app centered at 390px on a dark background. The bottom navigation stays visible; the floating plus button uses a transparent wrapper without a rectangular overlay. The document uses one normal vertical scrollbar.
+
+Try reveal/copy, generating another example, cancelling with “Not now,” completing reused and weak simulations, adding a demo account, changing settings, and opening each Learn article. Reload and confirm that the initial 3 / 15 / 6 profile and default settings return.

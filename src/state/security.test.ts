@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { DEMO_ACCOUNTS } from '../data/demo.ts'
+import { generateDemoPassword, isStrongDemoPassword } from '../data/passwords.ts'
 import type { Account } from '../types/index.ts'
 import {
   appReducer,
   createInitialState,
   filterAccounts,
+  getRelatedAccounts,
   getSecuritySummary,
   selectAccountById,
   selectSecuritySummary,
@@ -47,29 +49,46 @@ test('the fixed demo has 24 accounts with exclusive statuses and five explicit r
     assert.deepEqual(members.map((account) => account.id).sort(), [...memberIds].sort())
     assert.equal(members.length, memberIds.length)
     assert.ok(members.every((account) => account.status === 'reused'))
+    assert.equal(new Set(members.map((account) => account.demoPassword)).size, 1)
   }
   for (const account of DEMO_ACCOUNTS) {
     assert.equal(account.issueType, account.status === 'safe' ? 'none' : account.status)
     assert.equal(account.passwordStrength, account.status === 'weak' ? 'weak' : 'strong')
+    assert.ok(account.demoPassword.startsWith('DEMO-'))
+    if (account.status === 'weak') assert.ok(account.demoPassword.startsWith('DEMO-weak-'))
+    else assert.ok(isStrongDemoPassword(account.demoPassword))
     if (account.status === 'reused') assert.ok(account.reusedGroupId)
     else assert.equal(account.reusedGroupId, null)
   }
+  assert.equal(new Set(DEMO_ACCOUNTS.map((account) => account.demoPassword)).size, 14)
   assert.deepEqual(getSecuritySummary(createInitialState().accounts), getSecuritySummary(DEMO_ACCOUNTS))
 })
 
 test('fixing Spotify removes only its reuse issue and preserves other groups and weak issues', () => {
   const before = createInitialState()
-  const after = appReducer(before, { type: 'resolve-issue', accountId: 'spotify' })
+  const previous = selectAccountById(before, 'spotify')!
+  const generated = generateDemoPassword(before.accounts.map((account) => account.demoPassword), previous.demoPassword)
+  const after = appReducer(before, { type: 'resolve-issue', accountId: 'spotify', demoPassword: generated })
   assert.deepEqual(selectSecuritySummary(after), {
     total: 24, safe: 4, reused: 14, weak: 6, needsAttention: 20,
   })
   assert.equal(selectAccountById(after, 'spotify')?.reusedGroupId, null)
+  assert.equal(selectAccountById(after, 'spotify')?.demoPassword, generated)
+  assert.notEqual(selectAccountById(after, 'spotify')?.demoPassword, previous.demoPassword)
   assert.equal(selectAccountById(after, 'google')?.reusedGroupId, 'demo-shared-a')
   assert.deepEqual(selectAccountById(after, 'instagram'), selectAccountById(before, 'instagram'))
   assert.deepEqual(
     after.accounts.filter((account) => account.id !== 'spotify'),
     before.accounts.filter((account) => account.id !== 'spotify'),
   )
+  assert.deepEqual(after.lastResolution, {
+    accountId: 'spotify',
+    serviceName: 'Spotify',
+    issueType: 'reused',
+    relatedServiceNames: ['Google', 'Netflix', 'Instagram'],
+    before: getSecuritySummary(before.accounts),
+    after: getSecuritySummary(after.accounts),
+  })
 })
 
 test('Spotify, Google, then Netflix fixes normalize the final strong member without affecting other groups', () => {
@@ -90,6 +109,12 @@ test('Spotify, Google, then Netflix fixes normalize the final strong member with
   assert.deepEqual(selectSecuritySummary(state), {
     total: 24, safe: 7, reused: 11, weak: 6, needsAttention: 17,
   })
+  assert.deepEqual(state.lastResolution?.before, {
+    total: 24, safe: 5, reused: 13, weak: 6, needsAttention: 19,
+  })
+  assert.deepEqual(state.lastResolution?.after, selectSecuritySummary(state))
+  assert.deepEqual(state.lastResolution?.relatedServiceNames, ['Instagram'])
+  assert.equal(selectAccountById(state, 'instagram')?.demoPassword, selectAccountById(initial, 'instagram')?.demoPassword)
   for (const id of groupAIds) {
     const account = selectAccountById(state, id)!
     assert.equal(account.status, 'safe')
@@ -145,6 +170,10 @@ test('resolving a weak issue keeps unrelated reuse and account identity intact',
   assert.equal(github.passwordStrength, 'strong')
   assert.equal(github.username, selectAccountById(before, 'github')?.username)
   assert.equal(github.serviceName, 'GitHub')
+  assert.notEqual(github.demoPassword, selectAccountById(before, 'github')?.demoPassword)
+  assert.ok(isStrongDemoPassword(github.demoPassword))
+  assert.equal(after.lastResolution?.issueType, 'weak')
+  assert.deepEqual(after.lastResolution?.relatedServiceNames, [])
   assert.deepEqual(selectSecuritySummary(after), {
     total: 24, safe: 4, reused: 15, weak: 5, needsAttention: 20,
   })
@@ -165,6 +194,7 @@ test('clearing reuse preserves weak strength on the last remaining group member'
   assert.equal(remaining.passwordStrength, 'weak')
   assert.equal(remaining.reusedGroupId, null)
   assert.equal(remaining.username, spotify.username)
+  assert.equal(remaining.demoPassword, spotify.demoPassword)
   assert.equal(selectAccountById(initial, 'spotify')?.status, 'reused')
 })
 
@@ -247,4 +277,83 @@ test('an unknown or already safe account leaves state unchanged', () => {
   const state = createInitialState()
   assert.equal(appReducer(state, { type: 'resolve-issue', accountId: 'missing' }), state)
   assert.equal(appReducer(state, { type: 'resolve-issue', accountId: 'canvas' }), state)
+})
+
+test('generated demo examples are strong, twenty characters, and fresh across repeated calls', () => {
+  const existing = DEMO_ACCOUNTS.map((account) => account.demoPassword)
+  const generated = new Set<string>()
+  let current = existing[0]!
+  for (let index = 0; index < 100; index += 1) {
+    const value = generateDemoPassword(existing, current)
+    assert.equal(value.length, 20)
+    assert.ok(isStrongDemoPassword(value))
+    assert.notEqual(value, current)
+    assert.ok(!existing.includes(value))
+    assert.ok(!generated.has(value))
+    generated.add(value)
+    current = value
+  }
+  const firstWithoutInput = generateDemoPassword()
+  assert.notEqual(generateDemoPassword(), firstWithoutInput)
+})
+
+test('related accounts come only from active explicit reuse membership', () => {
+  const initial = createInitialState()
+  assert.deepEqual(getRelatedAccounts(initial.accounts, 'spotify').map((account) => account.id), [
+    'google', 'netflix', 'instagram',
+  ])
+  for (const id of ['canvas', 'github', 'missing']) {
+    assert.deepEqual(getRelatedAccounts(initial.accounts, id), [])
+  }
+  const resolved = appReducer(initial, { type: 'resolve-issue', accountId: 'spotify' })
+  assert.deepEqual(getRelatedAccounts(resolved.accounts, 'spotify'), [])
+  assert.deepEqual(getRelatedAccounts(resolved.accounts, 'google').map((account) => account.id), [
+    'netflix', 'instagram',
+  ])
+})
+
+test('preparing or abandoning a generated preview without dispatch leaves account state unchanged', () => {
+  const state = createInitialState()
+  const snapshot = structuredClone(state)
+  const spotify = selectAccountById(state, 'spotify')!
+  const generated = generateDemoPassword(state.accounts.map((account) => account.demoPassword), spotify.demoPassword)
+  assert.ok(isStrongDemoPassword(generated))
+  getRelatedAccounts(state.accounts, 'spotify')
+  selectSecuritySummary(state)
+  assert.deepEqual(state, snapshot)
+  assert.equal(state.lastResolution, null)
+  assert.equal(selectAccountById(state, 'spotify')?.demoPassword, spotify.demoPassword)
+})
+
+test('clearing resolution metadata keeps account changes and the security summary', () => {
+  const resolved = appReducer(createInitialState(), { type: 'resolve-issue', accountId: 'spotify' })
+  const cleared = appReducer(resolved, { type: 'clear-resolution' })
+  assert.equal(cleared.lastResolution, null)
+  assert.equal(cleared.accounts, resolved.accounts)
+  assert.deepEqual(selectSecuritySummary(cleared), selectSecuritySummary(resolved))
+  assert.equal(appReducer(cleared, { type: 'clear-resolution' }), cleared)
+  assert.ok(resolved.lastResolution)
+})
+
+test('changing settings affects only the requested setting and preserves resolution data', () => {
+  const resolved = appReducer(createInitialState(), { type: 'resolve-issue', accountId: 'github' })
+  const changed = appReducer(resolved, { type: 'update-settings', settings: { autoLock: false } })
+  assert.deepEqual(changed.settings, { autoLock: false, securityGuidance: true })
+  assert.equal(changed.accounts, resolved.accounts)
+  assert.equal(changed.lastResolution, resolved.lastResolution)
+  assert.deepEqual(resolved.settings, { autoLock: true, securityGuidance: true })
+})
+
+test('a duplicated or non-demo replacement is regenerated as a fresh fictitious example', () => {
+  for (const replacement of [DEMO_ACCOUNTS[0]!.demoPassword, 'not-a-demo-value']) {
+    const initial = createInitialState()
+    const resolved = appReducer(initial, {
+      type: 'resolve-issue', accountId: 'spotify', demoPassword: replacement,
+    })
+    const saved = selectAccountById(resolved, 'spotify')!.demoPassword
+    assert.ok(isStrongDemoPassword(saved))
+    assert.notEqual(saved, replacement)
+    assert.ok(!initial.accounts.some((account) => account.demoPassword === saved))
+    assert.deepEqual(resolved.lastResolution?.after, selectSecuritySummary(resolved))
+  }
 })
