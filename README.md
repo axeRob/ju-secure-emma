@@ -14,7 +14,7 @@ npm run dev
 
 Outside the cloud environment, use your checkout directory instead. The development command binds Vite to `0.0.0.0:5173` and fails if that port is occupied instead of silently choosing another port. Dependencies are locked in `package-lock.json` and the npm cache is ignored.
 
-For Web Preview, select the running development server on port **5173**, with `/` as the entry path. Do not select the source `index.html` as a static file: it imports TypeScript/JSX that Vite must transform, so opening the file directly will leave React unmounted. The `npm run preview` command serves a production build on a separate port and is not the development command.
+For Web Preview, select the running development server on port **5173**, with `/ju-secure-emma/` as the entry path. Do not select the source `index.html` as a static file: it imports TypeScript/JSX that Vite must transform, so opening the file directly will leave React unmounted. The `npm run preview` command serves a production build on a separate port and is not the development command.
 
 ```sh
 npm run build       # TypeScript check and production build
@@ -22,6 +22,16 @@ npm run typecheck   # TypeScript only
 npm test            # Ten domain tests using Node's test runner
 npm run preview     # Serve the production build
 ```
+
+## GitHub Pages
+
+The Vite base path is `/ju-secure-emma/`, matching the repository site. After deployment, the app is available at **https://axerob.github.io/ju-secure-emma/**. Hash routes such as `/ju-secure-emma/#/learn` and `/ju-secure-emma/#/vault/account/spotify` keep navigation and direct reloads working without server rewrites.
+
+In the repository's **Settings → Pages → Build and deployment → Source**, select **GitHub Actions** if it is not already selected. GitHub Actions must also be enabled for the repository. No `gh-pages` branch, custom domain, manual `dist` commit, or routing fallback is needed.
+
+`.github/workflows/deploy-pages.yml` runs on pushes to `main` and can also be started manually. It uses the pinned Node version, installs with `npm ci`, runs the existing tests, builds the production app, uploads `dist`, and deploys it to the `github-pages` environment. Tests and the build must succeed before deployment. The deployment job has the required Pages write and OIDC permissions.
+
+If the first run fails because Pages was not configured yet, select **GitHub Actions** as the source, then rerun **Deploy JU Secure to GitHub Pages** from the Actions tab. To check the production output locally, run `npm run build` followed by `npm run preview`, then open `/ju-secure-emma/` on the preview server.
 
 ## What works in this step
 
