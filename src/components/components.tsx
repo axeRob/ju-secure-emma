@@ -1,0 +1,242 @@
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleAlert,
+  Info,
+  LockKeyhole,
+  Plus,
+  Settings,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react'
+import type { Account } from '../types/index.ts'
+
+const classes = (...values: Array<string | false | null | undefined>) =>
+  values.filter(Boolean).join(' ')
+
+type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement>
+
+export function PrimaryButton({ className, type = 'button', ...props }: ButtonProps) {
+  return <button type={type} className={classes('button', 'button-primary', className)} {...props} />
+}
+
+export function SecondaryButton({ className, type = 'button', ...props }: ButtonProps) {
+  return <button type={type} className={classes('button', 'button-secondary', className)} {...props} />
+}
+
+export function TextAction({ className, type = 'button', ...props }: ButtonProps) {
+  return <button type={type} className={classes('text-action', className)} {...props} />
+}
+
+export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={classes('card', className)} {...props} />
+}
+
+type NoticeProps = HTMLAttributes<HTMLDivElement> & { title?: string }
+
+function NoticeCard({ title, children, className, icon: Icon, tone, ...props }: NoticeProps & {
+  icon: LucideIcon
+  tone: 'info' | 'warning' | 'success'
+}) {
+  return (
+    <div className={classes('card', 'notice-card', `${tone}-card`, className)} {...props}>
+      <Icon className="notice-icon" size={19} aria-hidden="true" />
+      <div className="notice-copy">
+        {title && <h3 className="notice-title">{title}</h3>}
+        <div className="notice-description">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+export function InfoCard(props: NoticeProps) {
+  return <NoticeCard {...props} icon={Info} tone="info" />
+}
+
+export function WarningCard(props: NoticeProps) {
+  return <NoticeCard {...props} icon={CircleAlert} tone="warning" />
+}
+
+export function SuccessCard(props: NoticeProps) {
+  return <NoticeCard {...props} icon={CheckCircle2} tone="success" />
+}
+
+export function StatusPill({ status }: { status: 'safe' | 'reused' | 'weak' }) {
+  const safe = status === 'safe'
+  return (
+    <span className={classes('status-pill', safe ? 'status-safe' : 'status-attention')} data-testid="status-pill">
+      {safe ? <Check size={11} aria-hidden="true" /> : <CircleAlert size={11} aria-hidden="true" />}
+      {safe ? 'Safe' : 'Needs attention'}
+    </span>
+  )
+}
+
+export function AccountCard({ account, onClick }: { account: Account; onClick: () => void }) {
+  const serviceKey = account.serviceName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  return (
+    <button type="button" className="account-card" onClick={onClick} data-testid="account-card"
+      aria-label={`${account.serviceName}, ${account.username}, ${account.status === 'safe' ? 'Safe' : 'Needs attention'}`}>
+      <div className="account-main">
+        <span className={classes('service-mark', `service-${serviceKey}`)} aria-hidden="true">{account.initial}</span>
+        <span className="account-copy">
+          <span className="account-service">{account.serviceName}</span>
+          <span className="account-username">{account.username}</span>
+        </span>
+      </div>
+      <span className="account-meta">
+        <StatusPill status={account.status} />
+        <ChevronRight className="account-chevron" size={16} aria-hidden="true" />
+      </span>
+    </button>
+  )
+}
+
+type SecuritySummaryProps = {
+  summary: { total: number; safe: number; reused: number; weak: number; needsAttention: number }
+  onRecommendation: () => void
+  recommendationLabel?: string
+}
+
+export function SecuritySummary({ summary, onRecommendation, recommendationLabel = 'Fix Spotify’s shared password' }: SecuritySummaryProps) {
+  const hasIssue = summary.needsAttention > 0
+  return (
+    <section className="card security-summary" aria-label="Security overview" data-testid="security-summary">
+      <h2 className="summary-title">{hasIssue ? '1 thing we recommend fixing first' : 'Your accounts are in a good place'}</h2>
+      <div className="summary-stats" role="group" aria-label={`${summary.total} accounts: ${summary.safe} safe, ${summary.reused} reused, ${summary.weak} weak`}>
+        <div className="summary-stat"><span className="stat-number">{summary.safe}</span><span className="stat-label">safe</span></div>
+        <div className="summary-stat"><span className="stat-number">{summary.reused}</span><span className="stat-label">reused</span></div>
+        <div className="summary-stat"><span className="stat-number">{summary.weak}</span><span className="stat-label">weak</span></div>
+      </div>
+      {hasIssue ? (
+        <button type="button" className="recommendation-action" onClick={onRecommendation}>
+          <span>{recommendationLabel}</span><ArrowRight size={17} aria-hidden="true" />
+        </button>
+      ) : (
+        <div className="summary-all-clear"><CheckCircle2 size={17} aria-hidden="true" /> No recommended fixes right now</div>
+      )}
+    </section>
+  )
+}
+
+export function SecurityIssueCard({ title, description, actionLabel, onAction }: {
+  title: string
+  description: string
+  actionLabel: string
+  onAction: () => void
+}) {
+  return (
+    <Card className="security-issue-card">
+      <div className="issue-heading"><CircleAlert size={19} aria-hidden="true" /><h3 className="issue-title">{title}</h3></div>
+      <p className="issue-description">{description}</p>
+      <TextAction onClick={onAction}>{actionLabel}<ArrowRight size={16} aria-hidden="true" /></TextAction>
+    </Card>
+  )
+}
+
+export function PasswordDisplay({ label = 'Password' }: { label?: string }) {
+  return (
+    <div className="password-display">
+      <span className="password-label">{label}</span>
+      <span className="password-value" role="img" aria-label="Hidden demo password">•••• •••• •••• ••••</span>
+      <span className="demo-label">Demo value</span>
+    </div>
+  )
+}
+
+export type NavigationSection = 'vault' | 'security' | 'learn' | 'settings'
+
+const navigationItems: Array<{ id: NavigationSection; label: string; icon: LucideIcon }> = [
+  { id: 'vault', label: 'Vault', icon: LockKeyhole },
+  { id: 'security', label: 'Security', icon: ShieldCheck },
+  { id: 'learn', label: 'Learn', icon: BookOpen },
+  { id: 'settings', label: 'Settings', icon: Settings },
+]
+
+export function BottomNavigation({ active, onNavigate }: {
+  active: NavigationSection
+  onNavigate: (section: NavigationSection) => void
+}) {
+  return (
+    <nav className="bottom-navigation" aria-label="Main navigation">
+      {navigationItems.map(({ id, label, icon: Icon }) => (
+        <button key={id} type="button" className={classes('nav-item', active === id && 'nav-item-active')}
+          aria-current={active === id ? 'page' : undefined} onClick={() => onNavigate(id)}>
+          <Icon size={21} aria-hidden="true" />
+          <span className="nav-label">{label}</span>
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+export function PageHeader({ title, subtitle, onBack }: {
+  title: string
+  subtitle?: string
+  onBack?: () => void
+}) {
+  return (
+    <header className="page-header">
+      {onBack && <button type="button" className="header-back" aria-label="Go back" onClick={onBack}><ArrowLeft size={20} aria-hidden="true" /></button>}
+      <div className="header-copy">
+        <h1 className="page-title">{title}</h1>
+        {subtitle && <p className="page-subtitle">{subtitle}</p>}
+      </div>
+    </header>
+  )
+}
+
+export function SettingsRow({ icon: Icon, title, description, children, onClick }: {
+  icon?: LucideIcon
+  title: string
+  description?: string
+  children?: ReactNode
+  onClick?: () => void
+}) {
+  const content = <>
+    {Icon && <span className="settings-icon"><Icon size={19} aria-hidden="true" /></span>}
+    <span className="settings-copy"><span className="settings-title">{title}</span>{description && <span className="settings-description">{description}</span>}</span>
+  </>
+  return (
+    <div className="settings-row">
+      {onClick ? <button type="button" className="settings-row-main" onClick={onClick}>{content}</button> : <div className="settings-row-main">{content}</div>}
+      {children ? <div className="settings-end">{children}</div> : onClick ? <ChevronRight className="settings-chevron" size={16} aria-hidden="true" /> : null}
+    </div>
+  )
+}
+
+export function Toggle({ checked, onChange, label, disabled = false }: {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  label: string
+  disabled?: boolean
+}) {
+  return <button type="button" className={classes('toggle', checked && 'toggle-on')} role="switch"
+    aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)}>
+    <span className="toggle-thumb" />
+  </button>
+}
+
+export function LearnCard({ title, description, children, onClick }: {
+  title: string
+  description: string
+  children?: ReactNode
+  onClick?: () => void
+}) {
+  return (
+    <Card className="learn-card">
+      <h3 className="learn-title">{title}</h3>
+      <p className="learn-description">{description}</p>
+      {children && <div className="learn-body">{children}</div>}
+      {onClick && <TextAction className="learn-action" onClick={onClick} aria-label={`Read about ${title}`}>Read more<ArrowRight size={16} aria-hidden="true" /></TextAction>}
+    </Card>
+  )
+}
+
+export function FloatingActionButton({ onClick }: { onClick: () => void }) {
+  return <div className="floating-action-area"><button type="button" className="floating-action-button" aria-label="Add demo account" onClick={onClick}><Plus size={25} aria-hidden="true" /></button></div>
+}
