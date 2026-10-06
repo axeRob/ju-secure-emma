@@ -19,7 +19,7 @@ For Web Preview, select the running development server on port **5173**, with `/
 ```sh
 npm run build       # TypeScript check and production build
 npm run typecheck   # TypeScript only
-npm test            # Ten domain tests using Node's test runner
+npm test            # Eleven domain tests using Node's test runner
 npm run preview     # Serve the production build
 ```
 
@@ -36,7 +36,7 @@ If the first run fails because Pages was not configured yet, select **GitHub Act
 ## What works in this step
 
 - Vault, Security, Learn, and Settings navigation, including browser back/forward.
-- A polished Vault with all 24 demo accounts: **20 safe, 3 reused, 1 weak**. Account cards open details; the recommendation and plus button open their respective screen shells.
+- A polished Vault with all 24 demo accounts: **3 safe, 15 reused, 6 weak**. Reused accounts belong to five explicit groups. The summary prioritizes Spotify while the Security overview groups the remaining issues. Account cards open details; the recommendation and plus button open their respective screen shells.
 - Learn overview, an account-based example, and two clearly marked future topics.
 - Consistent Security and Settings shells. Settings show safe defaults as disabled controls marked “Coming next.” They do not perform locking or other security operations.
 - Direct routes for onboarding, account details/add, security guidance/success, and learning articles. Incomplete workflows explain their scope and provide a working return action. The success shell does not claim that an action occurred.

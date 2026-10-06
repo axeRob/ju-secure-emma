@@ -6,9 +6,21 @@
 
 Each account has `id`, `serviceName`, `username`, `status`, `issueType`, `passwordStrength`, `reusedGroupId`, and `initial`. There is deliberately no password value. `PasswordDisplay` renders fixed demonstration bullets.
 
-Initial data contains exactly 24 accounts. Google, Spotify, and Netflix share `demo-shared-1`; Instagram is weak; 20 accounts are safe. Reuse relationships are explicit IDs, never inferred from names or email addresses. `getSecuritySummary` derives every displayed count from accounts.
+Initial data contains exactly 24 accounts: **3 safe, 15 reused, 6 weak**, reflecting Emma's current password habits. JU Student Web, Canvas / JU, and University Library are safe. GitHub, Facebook, Apple, Slack, Duolingo, and Student Email are weak.
+
+| Reused group | Accounts |
+| --- | --- |
+| `demo-shared-a` | Spotify, Google, Netflix, Instagram |
+| `demo-shared-b` | Amazon, Booking.com, Microsoft |
+| `demo-shared-c` | LinkedIn, Zoom, Notion |
+| `demo-shared-d` | Reddit, Discord, Steam |
+| `demo-shared-e` | Dropbox, Adobe |
+
+Reuse relationships are explicit IDs, never inferred from names or email addresses. `getSecuritySummary` derives every displayed count from accounts. Vault recommends Spotify first, while Security keeps one prioritized issue and two aggregate categories. Reuse guidance derives the displayed members from the selected account's actual group.
 
 The reducer has actions for resolving an issue, adding/importing demo accounts, filtering, updating future settings, finishing onboarding, and returning-user state. These actions prepare later implementation; unfinished UI flows do not dispatch them. Resolving one reused account leaves the remaining group related. When only one member remains, that member becomes safe too. Add/import preserve existing accounts and assign deterministic unique IDs on collisions.
+
+For the four-member Spotify group, resolving Spotify gives 4 safe / 14 reused / 6 weak; resolving Google next gives 5 / 13 / 6. Resolving Netflix then automatically clears Instagram's final reuse relationship, producing 7 / 11 / 6. Other groups remain unchanged. These are examples of derived reducer results, not hardcoded display values or newly implemented UI actions.
 
 `status` and `issueType` represent the primary displayed issue, while `passwordStrength` records strength separately. Removing a final reuse relationship keeps a weak remaining account marked weak; it becomes safe only if its strength is strong. If later prompts introduce further simultaneous issue types, extend this to a typed issue collection and keep unrelated issues when resolving one. Do not infer actual password strength or reuse: all values are supplied by demo fixtures.
 

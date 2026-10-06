@@ -6,7 +6,7 @@ import type { Route } from '../routes.ts';
 
 const shells = {
   'add-account': { title: 'Add account', subtitle: 'One more account, one safe place.', heading: 'Your next account starts here.', description: 'The demo account form will be added in the next step. You won’t need to enter real credentials.' },
-  'reused-password': { title: 'Shared password', subtitle: 'A small change can protect more than one account.', heading: 'Give Spotify its own password.', description: 'Spotify, Google and Netflix share the same demo password. If one account leaks it, the others could be affected too. A unique password keeps them separate.' },
+  'reused-password': { title: 'Shared password', subtitle: 'A small change can protect more than one account.', heading: 'Give this account its own password.', description: 'A unique password helps keep one account separate from the others.' },
   'safer-password': { title: 'Safer password', subtitle: 'We’ll make the safe choice easy.', heading: 'A strong password, without the guesswork.', description: 'The guided password step will be added next. A safe default will do the work for you.' },
   'weak-password': { title: 'Stronger password', subtitle: 'Easy for you. Harder to guess.', heading: 'A longer password makes a difference.', description: 'Short, familiar passwords are easier to guess. We’ll guide you to a stronger password in the next step.' },
   success: { title: 'What improved', subtitle: 'See the difference your next step makes.', heading: 'A place for positive progress.', description: 'After completing a security action, this screen will explain which accounts became safer. No action has been completed yet.' },
@@ -40,7 +40,19 @@ export function RouteShell({ route, navigate }: { route: Route; navigate: (route
     );
   }
   if (!(route.screen in shells)) return <PageHeader title="JU Secure" onBack={goBack} />;
-  const content = shells[route.screen as keyof typeof shells];
+  let content = shells[route.screen as keyof typeof shells];
+  if (route.screen === 'reused-password') {
+    const account = state.accounts.find(item => item.id === route.accountId);
+    if (account?.status === 'reused' && account.reusedGroupId) {
+      const relatedAccounts = state.accounts.filter(item => item.id !== account.id && item.status === 'reused' && item.reusedGroupId === account.reusedGroupId);
+      const names = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format([account.serviceName, ...relatedAccounts.map(item => item.serviceName)]);
+      content = {
+        ...content,
+        heading: `Give ${account.serviceName} its own password.`,
+        description: `${names} share the same demo password. If one account leaks it, the others could be affected too. A unique password keeps them separate.`,
+      };
+    }
+  }
   const Icon = route.screen === 'learn-article' ? BookOpen : route.screen === 'unlock' ? LockKeyhole : route.screen === 'add-account' ? KeyRound : ShieldCheck;
   return (
     <>
